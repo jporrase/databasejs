@@ -226,7 +226,10 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-const PORT = 4000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// At the bottom of your file, replace the existing listen code with:
+const PORT = process.env.PORT || 4000;
+const HOST = '0.0.0.0';  // Important for DigitalOcean App Platform
+
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on port ${PORT}`);
 });
