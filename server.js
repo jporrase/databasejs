@@ -2,28 +2,33 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-// Initialize Express
 const app = express();
+
+// Environment Variables
+const MONGODB_PASSWORD = process.env.MONGODB_PASSWORD;
+if (!MONGODB_PASSWORD) {
+  console.error('MONGODB_PASSWORD environment variable is not set');
+  process.exit(1);
+}
 
 // Middleware
 app.use(express.json());
 app.use(cors()); // Enable Cross-Origin Resource Sharing
 app.use(
   cors({
-    origin: '*', // Allow all origins (update this for production)
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
 
 // MongoDB Connection
-const MONGO_URI = 'mongodb://localhost:27017/your_database_name';
-mongoose
-  .connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log('Connected to MongoDB!'))
-  .catch((err) => console.error('Error connecting to MongoDB:', err));
+const MONGO_URI = `mongodb+srv://jporrase:${MONGODB_PASSWORD}@cluster0.kbggqin.mongodb.net/farmDatabase?retryWrites=true&w=majority&appName=Cluster0`;
 
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log('Connected to MongoDB Atlas!'))
+  .ca
 // Schemas
 const DataSchema = new mongoose.Schema({
   finca: { type: String, required: true },
