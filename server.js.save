@@ -1,0 +1,297 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+// Initialize Express
+const app = express();
+
+// Middleware
+app.use(express.json());
+app.use(cors()); // Enable Cross-Origin Resource Sharing
+app.use(
+  cors({
+    origin: '*', // Allow all origins (update this for production)
+  })
+);
+
+// MongoDB Connection
+const MONGO_URI = 'mongodb://localhost:27017/your_database_name';
+mongoose
+  .connect(MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log('Connected to MongoDB!'))
+  .catch((err) => console.error('Error connecting to MongoDB:', err));
+
+// Schemas
+const DataSchema = new mongoose.Schema({
+  finca: { type: String, required: true },
+  owner: { type: String, required: true },
+  phone: { type: String },
+  email: { type: String, required: true },
+});
+
+const UserSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+});
+
+const FormSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  comite: { cultivo: { type: String, default: '' } },
+  fitosanitarios: {
+    fechaDeAplicacion: { type: String, default: '' },
+    hora: { type: String, default: '' },
+    enfermedadAControlar: { type: String, default: '' },
+    severidad: { type: String, default: '' },
+    productoAplicado: { type: String, default: '' },
+    dosisMochila: { type: String, default: '' },
+    dosisTonel: { type: String, default: '' },
+    cantidadTotalAplicada: { type: String, default: '' },
+    frecuenciaAplicacion: { type: String, default: '' },
+    foto: { type: String, default: '' },
+  },
+  // Additional sections can be added here
+});
+
+// Models
+const Data = mongoose.model('Data', DataSchema);
+const User = mongoose.model('User', UserSchema);
+const Form = mongoose.model('Form', FormSchema);
+
+// Routes
+
+// Delete all users
+app.delete('/api/users', async (req, res) => {
+  try {
+    const result = await User.deleteMany({});
+    console.log(`Deleted ${result.deletedCount} users.`);
+    res.status(200).json({ message: `Successfully deleted ${result.deletedCount} users.` });
+  } catch (error) {
+    console.error('Error deleting users:', error);
+    res.status(500).json({ message: 'Failed to delete users. Please try again.' });
+  }
+});
+
+app.get('/api/users/:email/schema', async (req, res) => {
+  const email = req.params.email;
+
+  try {
+    // Find the user by email
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Define the schema structure tied to the user
+    const userSchema = {
+      userDetails: {
+        email: user.email,
+        password: "String (hashed)"
+      },
+      forms: {
+        fitosanitarios: {
+          fechaDeAplicacion: "Date",
+          hora: "Time",
+          enfermedadAControlar: "String",
+          severidad: "String",
+          productoAplicado: "String",
+          dosisMochila: "String",
+          dosisTonel: "String",
+          cantidadTotalAplicada: "String",
+          frecuenciaAplicacion: "String",
+          foto: "String (file path)"
+        },
+        fertilizantes: {
+          fechaDeAplicacion: "Date",
+          hora: "Time",
+          productoAplicado: "String",
+          dosisMochila: "String",
+          foto: "String (file path)"
+        },
+        consumoDeAgua: {
+          fechaDeRiego: "Date",
+          hora: "Time",
+          cantidadAguaUtilizada: "String",
+          aguaParaPlaguicidas: "String"
+        },
+        cosecha: {
+          fecha: "Date",
+          nombreDelSector: "String",
+          cantidadDeFrutoEnLbs: "String",
+          lbsFrutoRechazado: "String",
+          pesoPromedioAguacate: "String",
+          nombreDeLoteDeCosecha: "String",
+          foto: "String (file path)"
+        },
+        tratamientoDeAgua: {
+          fechaDeAplicacion: "Date",
+          volumenAguaATratar: "String",
+          productoAplicado: "String",
+          cantidadProdAplicado: "String",
+          foto: "String (file path)"
+        },
+        higieneInstalaciones: {
+          fecha: "Date",
+          areaHigienizada: "String",
+          productosUtilizados: "String",
+          foto: "String (file path)"
+        },
+        controlVisitas: {
+          fechaDeVisita: "Date",
+          horaDeLlegada: "Time",
+          horaDeSalida: "Time",
+          nombreDelVisitante: "String",
+          numeroDPI: "String",
+          cantPersonasEnVehiculo: "Number",
+          tipoDeAutomovil: "String",
+          numeroDePlacasVehiculo: "String"
+        }
+      }
+    };
+
+    res.status(200).json(userSchema);
+  } catch (error) {
+    console.error('Error retrieving user schema:', error);
+    res.status(500).json({ message: 'Failed to retrieve schema. Please try again.' });
+  }
+});
+
+// Save data
+app.post('/api/data', async (req, res) => {
+  try {
+    const { finca, owner, phone, email } = req.body;
+
+    if (!finca || !owner || !email) {
+      return res.status(400).send('Finca, owner, and email are required.');
+    }
+
+    const newData = new Data({ finca, owner, phone, email });
+    await newData.save();
+    res.send({ message: 'Data saved successfully' });
+  } catch (error) {
+    console.error('Error saving data:', error);
+    res.status(500).send('Error saving data.');
+  }
+});
+
+// Get all data
+app.get('/api/data', async (req, res) => {
+  try {
+    const data = await Data.find();
+    res.send(data);
+  } catch (error) {
+    console.error('Error retrieving data:', error);
+    res.status(500).send('Error retrieving data.');
+  }
+});
+
+// User signup
+app.post('/api/signup', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists.' });
+    }
+
+    const newUser = new User({ email, password });
+    await newUser.save();
+    res.status(201).json({ message: 'User signed up successfully!' });
+  } catch (error) {
+    console.error('Error signing up user:', error);
+    res.status(500).json({ message: 'Failed to sign up user. Please try again.' });
+  }
+});
+
+// Password Reset
+app.post('/api/reset-password', async (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+
+  if (!email || !oldPassword || !newPassword) {
+    return res.status(400).json({ message: 'Email, old password, and new password are required.' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (user.password !== oldPassword) {
+      return res.status(400).json({ message: 'Incorrect old password.' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ message: 'Password changed successfully!' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ message: 'Failed to change password. Please try again.' });
+  }
+});
+
+// User login with form creation
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  try {
+    const user = await User.findOne({ email, password });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
+    }
+
+    // Create a new form entry for the user
+    const newForm = new Form({ userId: user._id });
+    await newForm.save();
+
+    res.status(200).json({ message: 'Login successful and new form created!', formId: newForm._id });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ message: 'Failed to log in. Please try again.' });
+  }
+});
+
+// Get all users
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.send(users);
+  } catch (error) {
+    console.error('Error retrieving users:', error);
+    res.status(500).send('Error retrieving users.');
+  }
+});
+
+// Get all forms for a user
+app.get('/api/forms/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const forms = await Form.find({ userId });
+    res.json(forms);
+  } catch (error) {
+    console.error('Error retrieving forms:', error);
+    res.status(500).json({ message: 'Failed to retrieve forms.' });
+  }
+});
+
+// Start the server
+const PORT = 4000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
